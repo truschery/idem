@@ -7,6 +7,11 @@
             "Truschery\\Idem\\": "src/"
         }
     },
+    "autoload-dev": {
+      "psr-4": {
+        "Truschery\\Idem\\Tests\\": "tests"
+      }
+    },
     "authors": [
         {
             "name": "truschery",
@@ -28,5 +33,15 @@
         "allow-plugins": {
             "pestphp/pest-plugin": true
         }
+    },
+    "extra": {
+      "laravel": {
+        "providers": [
+          "Truschery\\Idem\\IdempotencyServiceProvider"
+        ],
+        "aliases": {
+          "IdempotencyMethod": "Truschery\\Idem\\Method"
+        }
+      }
     }
 }
