@@ -17,16 +17,17 @@ class Method
      */
     public function deed(string $key, \Closure $callback, ?int $timeout = 10)
     {
+        // TODO: Нужно еще реализовать проверку хеша параметров
         $record = $this->strategy->get($key);
 
-        if($record->hit){
+        if($record->isReplayed){
             return $record->response;
         }
 
         $this->waitForLock($key, $timeout);
 
         $record = $this->strategy->get($key);
-        if($record->hit){
+        if($record->isReplayed){
             $this->strategy->releaseLock($key);
             return $record->response;
         }
@@ -44,7 +45,7 @@ class Method
     /**
      * @throws LockWaitExceededException
      */
-    private function waitForLock(string $key, int $timeout)
+    private function waitForLock(string $key, int $timeout): void
     {
         $startTime = time();
 

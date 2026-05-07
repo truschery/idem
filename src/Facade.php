@@ -2,7 +2,7 @@
 
 namespace Truschery\Idem;
 
-class Once
+class Facade
 {
 
     private IdempotencyManager $manager;
@@ -18,16 +18,15 @@ class Once
      * @param string|null $key
      * @return T
      */
-    public function make(string|object $obj, ?string $key = null): object
+    public function make(object $obj, ?string $key = null): object
     {
         return Proxy::make(
             $obj,
+            $this->manager,
             $key,
-            $this->manager
         );
     }
 
-    // Использовать замыкание
     public function run(string $key, \Closure $callback)
     {
         return $this->manager->driver()->deed($key, $callback);

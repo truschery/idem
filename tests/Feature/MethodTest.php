@@ -19,33 +19,20 @@ use Truschery\Idem\Exceptions\LockWaitExceededException;
 use Truschery\Idem\Strategy\CacheIdempotencyStrategy;
 
 describe('Method', function (){
-    beforeEach(function () {
-        $this->strategy = app()->make(CacheIdempotencyStrategy::class);
-        $this->method = app()->make(\Truschery\Idem\Method::class, [
-            'strategy' => $this->strategy,
-        ]);
-    });
 
     it('successfully executed the initial call, caches the response, and release the lock', function () {
-        $record = new \Truschery\Idem\IdempotencyRecord(
-            'idempotency-uuid',
-            null,
-            false
-        );
+        $record = new \Truschery\Idem\IdempotencyRecord;
+        $key = 'idempotency-uuid';
 
         $mock = mock(CacheIdempotencyStrategy::class);
-        $mock->shouldReceive('get')->twice()->with($record->key)->andReturn($record);
-        $mock->shouldReceive('acquireLock')->once()->with($record->key)->andReturn(true);
-        $mock->shouldReceive('save')->andReturn(new \Truschery\Idem\IdempotencyRecord(
-            'idempotency-uuid',
-            true,
-            true
-        ));
-        $mock->shouldReceive('releaseLock')->once()->with($record->key);
+        $mock->shouldReceive('get')->twice()->with($key)->andReturn($record);
+        $mock->shouldReceive('acquireLock')->once()->with($key)->andReturn(true);
+        $mock->shouldReceive('save')->once();
+        $mock->shouldReceive('releaseLock')->once()->with($key);
 
         $method = new \Truschery\Idem\Method($mock);
 
-        $response = $method->deed($record->key, fn() => true);
+        $response = $method->deed($key, fn() => true);
 
         expect($response)->toBeTrue();
     });
@@ -55,7 +42,6 @@ describe('Method', function (){
         $count = 1;
 
         $record = new \Truschery\Idem\IdempotencyRecord(
-            $key,
             1,
             true
         );
@@ -78,37 +64,33 @@ describe('Method', function (){
     });
 
     it('throws an exception when the timeout for acquiring a lock is exceeded', function () {
-        $record = new \Truschery\Idem\IdempotencyRecord(
-            'throw-idempotency-uuid',
-            null,
-            false
-        );
+        $record = new \Truschery\Idem\IdempotencyRecord;
+        $key = 'throw-idempotency-uuid';
 
         // TODO: Переписать тест как появится конфиг
         $mock = mock(CacheIdempotencyStrategy::class);
-        $mock->shouldReceive('get')->with($record->key)->andReturn($record);
-        $mock->shouldReceive('acquireLock')->with($record->key)->andReturn(false);
+        $mock->shouldReceive('get')->with($key)->andReturn($record);
+        $mock->shouldReceive('acquireLock')->with($key)->andReturn(false);
 
         $method = new \Truschery\Idem\Method($mock);
 
-        expect(fn() => $method->deed($record->key, fn() => throw new Exception(), 1))
+        expect(fn() => $method->deed($key, fn() => throw new Exception(), 1))
             ->toThrow(LockWaitExceededException::class);
     });
 
     it('waits for the lock to end and returns the cached result', function (){
         $record = new \Truschery\Idem\IdempotencyRecord(
-            'wait-idempotency-uuid',
             'response',
             true
         );
+        $key = 'wait-idempotency-uuid';
         $mock = mock(CacheIdempotencyStrategy::class);
-        $mock->shouldReceive('get')->with($record->key)->andReturn($record);
-        $mock->shouldReceive('acquireLock')->with($record->key)->andReturn(false);
-        $mock->shouldReceive('waitToLock')->with($record->key)->andReturn(true);
+        $mock->shouldReceive('get')->with($key)->andReturn($record);
+        $mock->shouldReceive('acquireLock')->with($key)->andReturn(false);
 
         $method = new \Truschery\Idem\Method($mock);
 
-        $response = $method->deed($record->key, fn() => 'second response');
+        $response = $method->deed($key, fn() => 'second response');
         expect($response)->toBe($record->response);
     });
 });

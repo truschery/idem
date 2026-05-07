@@ -29,15 +29,12 @@ class CacheIdempotencyStrategy implements IdempotencyStrategyInterface
      */
     public function get(string $key): IdempotencyRecord
     {
-        $record = $this->cacheRepository->get($this->getCacheKey($key));
-        if(is_null($record)){
-            return new IdempotencyRecord(
-                $key,
-                null,
-                false
-            );
+        $response = $this->cacheRepository->get($this->getCacheKey($key));
+        if(is_null($response)){
+            return new IdempotencyRecord;
         }
-        return $record;
+
+        return new IdempotencyRecord($response, true);
     }
 
     /**
@@ -48,19 +45,12 @@ class CacheIdempotencyStrategy implements IdempotencyStrategyInterface
      */
     public function save(string $key, mixed $response): IdempotencyRecord
     {
-        $record = new IdempotencyRecord(
-            $key,
-            $response,
-            true
-        );
-
-        $this->cacheRepository->set($this->getCacheKey($key), $record);
-        return $record;
+        $this->cacheRepository->set($this->getCacheKey($key), $response);
+        return new IdempotencyRecord($response);
     }
 
     /**
      * @param string $key
-     * @param int $seconds
      * @return bool
      */
     public function acquireLock(string $key): bool

@@ -17,7 +17,7 @@ class Proxy
     public function __construct(
         private object $instance,
         private ?string $idempotencyKey = null,
-        private $idempotencyManager
+        private IdempotencyManager $idempotencyManager
         // config
     ){
         $this->gatherMarkedMethods();
@@ -29,7 +29,7 @@ class Proxy
      * @param string|null $key
      * @return T
      */
-    public static function make(object $obj, ?string $key = null, IdempotencyManager $manager): object
+    public static function make(object $obj, IdempotencyManager $manager, ?string $key = null): object
     {
         return new self(
             $obj,

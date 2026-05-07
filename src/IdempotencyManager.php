@@ -15,7 +15,7 @@ class IdempotencyManager extends Manager
 
     public function createCacheDriver()
     {
-        return app()->make(Method::class, [
+        return $this->container->make(Method::class, [
             'strategy' => app()->make(CacheIdempotencyStrategy::class),
         ]);
     }
