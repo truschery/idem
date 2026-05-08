@@ -29,6 +29,9 @@ class Facade
 
     public function run(string $key, \Closure $callback)
     {
+        $idempotencyKey = new IdempotencyKey(
+            key: $key,
+        );
         return $this->manager->driver()->deed($key, $callback);
     }
 

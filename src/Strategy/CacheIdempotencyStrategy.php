@@ -5,13 +5,13 @@ namespace Truschery\Idem\Strategy;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
+use Truschery\Idem\IdempotencyKey;
 use Truschery\Idem\IdempotencyRecord;
 use Psr\SimpleCache\InvalidArgumentException;
 use Truschery\Idem\Contracts\IdempotencyStrategyInterface;
 
 class CacheIdempotencyStrategy implements IdempotencyStrategyInterface
 {
-
     private string $lockOwner;
 
     public function __construct(
@@ -19,7 +19,7 @@ class CacheIdempotencyStrategy implements IdempotencyStrategyInterface
         private readonly Cacherepository $cacheRepository
     ){}
 
-    const PREFIX = 'idempotency:strategy:';
+    const PREFIX = 'idempotency:record:';
     const LOCK_SECONDS = 10;
 
     /**
@@ -27,14 +27,18 @@ class CacheIdempotencyStrategy implements IdempotencyStrategyInterface
      * @return IdempotencyRecord
      * @throws InvalidArgumentException
      */
-    public function get(string $key): IdempotencyRecord
+    public function get(IdempotencyKey $key): IdempotencyRecord
     {
-        $response = $this->cacheRepository->get($this->getCacheKey($key));
-        if(is_null($response)){
+        $record = $this->cacheRepository->get($this->getCacheKey($key));
+        if(is_null($record)){
             return new IdempotencyRecord;
         }
 
-        return new IdempotencyRecord($response, true);
+        return new IdempotencyRecord(
+            response: $record['response'],
+            hash: $record['hash'],
+            isReplayed: true
+        );
     }
 
     /**
@@ -43,9 +47,12 @@ class CacheIdempotencyStrategy implements IdempotencyStrategyInterface
      * @return IdempotencyRecord
      * @throws InvalidArgumentException
      */
-    public function save(string $key, mixed $response): IdempotencyRecord
+    public function save(IdempotencyKey $key, mixed $response): IdempotencyRecord
     {
-        $this->cacheRepository->set($this->getCacheKey($key), $response);
+        $this->cacheRepository->set($this->getCacheKey($key), [
+            'response' => $response,
+            'hash' => $key->hash
+        ]);
         return new IdempotencyRecord($response);
     }
 
@@ -53,7 +60,7 @@ class CacheIdempotencyStrategy implements IdempotencyStrategyInterface
      * @param string $key
      * @return bool
      */
-    public function acquireLock(string $key): bool
+    public function acquireLock(IdempotencyKey $key): bool
     {
         try {
             $lock = $this->lockProvider
@@ -76,7 +83,7 @@ class CacheIdempotencyStrategy implements IdempotencyStrategyInterface
      * @param string $key
      * @return mixed
      */
-    public function releaseLock(string $key): bool
+    public function releaseLock(IdempotencyKey $key): bool
     {
         $restore = $this->lockProvider
             ->restoreLock($this->getCacheKey($key), $this->lockOwner);
@@ -84,8 +91,8 @@ class CacheIdempotencyStrategy implements IdempotencyStrategyInterface
         return $restore->release();
     }
 
-    private function getCacheKey(string $key): string
+    private function getCacheKey(IdempotencyKey $key): string
     {
-        return self::PREFIX . $key;
+        return self::PREFIX . $key->key;
     }
 }

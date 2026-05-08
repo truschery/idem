@@ -2,17 +2,18 @@
 
 namespace Truschery\Idem\Contracts;
 
+use Truschery\Idem\IdempotencyKey;
 use Truschery\Idem\IdempotencyRecord;
 
 interface IdempotencyStrategyInterface
 {
-    public function get(string $key): IdempotencyRecord;
+    public function get(IdempotencyKey $key): IdempotencyRecord;
 
-    public function save(string $key, $response): IdempotencyRecord;
+    public function save(IdempotencyKey $key, $response): IdempotencyRecord;
 
-    public function acquireLock(string $key): bool;
+    public function acquireLock(IdempotencyKey $key): bool;
 
-    public function releaseLock(string $key);
+    public function releaseLock(IdempotencyKey $key);
 
 
 

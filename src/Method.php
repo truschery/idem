@@ -2,7 +2,6 @@
 
 namespace Truschery\Idem;
 
-use Truschery\Idem\Attributes\IdempotencyKey;
 use Truschery\Idem\Contracts\IdempotencyStrategyInterface;
 use Truschery\Idem\Exceptions\LockWaitExceededException;
 
@@ -15,20 +14,28 @@ class Method
     /**
      * @throws LockWaitExceededException
      */
-    public function deed(string $key, \Closure $callback, ?int $timeout = 10)
+    public function deed(IdempotencyKey $key, \Closure $callback, ?int $timeout = 10)
     {
         // TODO: Нужно еще реализовать проверку хеша параметров
         $record = $this->strategy->get($key);
 
         if($record->isReplayed){
+            if($record->hash && $record->hash !== $key->hash){
+                throw new \Exception('Mismatch hashes');
+            }
+
             return $record->response;
         }
 
         $this->waitForLock($key, $timeout);
 
         $record = $this->strategy->get($key);
+
         if($record->isReplayed){
-            $this->strategy->releaseLock($key);
+            if($record->hash && $record->hash !== $key->hash){
+                throw new \Exception('Mismatch hashes');
+            }
+
             return $record->response;
         }
 
@@ -45,7 +52,7 @@ class Method
     /**
      * @throws LockWaitExceededException
      */
-    private function waitForLock(string $key, int $timeout): void
+    private function waitForLock(IdempotencyKey $key, int $timeout): void
     {
         $startTime = time();
 
