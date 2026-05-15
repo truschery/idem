@@ -27,18 +27,10 @@ class Facade
         );
     }
 
-    public function run(string $key, \Closure $callback)
+    public function run(string|IdempotencyKey $key, \Closure $callback)
     {
-        $idempotencyKey = new IdempotencyKey(
-            key: $key,
-        );
-        return $this->manager->driver()->deed($key, $callback);
-    }
-
-    // Забыть ключ
-    public function forget()
-    {
-
+        $idempotencyKey = $key instanceof IdempotencyKey ? $key : new IdempotencyKey($key);
+        return $this->manager->driver()->deed($idempotencyKey, $callback);
     }
 
 }

@@ -2,21 +2,23 @@
 
 namespace Truschery\Idem;
 
+use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\Manager;
-use Truschery\Idem\Contracts\IdempotencyStrategyInterface;
-use Truschery\Idem\Strategy\CacheIdempotencyStrategy;
+use Truschery\Idem\Contracts\IdempotencyStore;
+use Truschery\Idem\Stores\CacheStore;
 
 class IdempotencyManager extends Manager
 {
-    public function getDefaultDriver()
+    public function getDefaultDriver(): string
     {
         return 'cache';
     }
 
-    public function createCacheDriver()
+    /**
+     * @throws BindingResolutionException
+     */
+    public function createCacheDriver(): IdempotencyStore
     {
-        return $this->container->make(Method::class, [
-            'strategy' => app()->make(CacheIdempotencyStrategy::class),
-        ]);
+        return $this->container->make(CacheStore::class);
     }
 }

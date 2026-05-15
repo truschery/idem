@@ -1,6 +1,6 @@
 <?php
 
-namespace Truschery\Idem\Strategy;
+namespace Truschery\Idem\Stores;
 
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\LockTimeoutException;
@@ -8,9 +8,9 @@ use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Truschery\Idem\IdempotencyKey;
 use Truschery\Idem\IdempotencyRecord;
 use Psr\SimpleCache\InvalidArgumentException;
-use Truschery\Idem\Contracts\IdempotencyStrategyInterface;
+use Truschery\Idem\Contracts\IdempotencyStore;
 
-class CacheIdempotencyStrategy implements IdempotencyStrategyInterface
+class CacheStore implements IdempotencyStore
 {
     private string $lockOwner;
 
@@ -94,5 +94,10 @@ class CacheIdempotencyStrategy implements IdempotencyStrategyInterface
     private function getCacheKey(IdempotencyKey $key): string
     {
         return self::PREFIX . $key->key;
+    }
+
+    public function waitForLock(IdempotencyKey $key): void
+    {
+        $this->acquireLock($key);
     }
 }
