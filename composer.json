@@ -19,7 +19,8 @@
         }
     ],
     "require": {
-      "php": "^8.2"
+      "php": "^8.2",
+        "truschery/kanon": "^1.0"
     },
     "require-dev": {
         "laravel/framework": "^10.0|^11.0|^12.0",
