@@ -26,9 +26,6 @@ pest()->extend(Truschery\Idem\Tests\TestCase::class)
 |
 */
 
-expect()->extend('toBeOne', function () {
-    return $this->toBe(1);
-});
 
 /*
 |--------------------------------------------------------------------------
