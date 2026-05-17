@@ -5,6 +5,8 @@ namespace Truschery\Idem\Stores;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
+use Truschery\Idem\Config\IdempotencyConfig;
+use Truschery\Idem\Exceptions\LockWaitExceededException;
 use Truschery\Idem\IdempotencyKey;
 use Truschery\Idem\IdempotencyRecord;
 use Psr\SimpleCache\InvalidArgumentException;
@@ -16,14 +18,14 @@ class CacheStore implements IdempotencyStore
 
     public function __construct(
         private readonly LockProvider $lockProvider,
-        private readonly Cacherepository $cacheRepository
+        private readonly Cacherepository $cacheRepository,
+        private readonly IdempotencyConfig $config,
     ){}
 
     const PREFIX = 'idempotency:record:';
-    const LOCK_SECONDS = 10;
 
     /**
-     * @param string $key
+     * @param IdempotencyKey $key
      * @return IdempotencyRecord
      * @throws InvalidArgumentException
      */
@@ -42,7 +44,7 @@ class CacheStore implements IdempotencyStore
     }
 
     /**
-     * @param string $key
+     * @param IdempotencyKey $key
      * @param mixed $response
      * @return IdempotencyRecord
      * @throws InvalidArgumentException
@@ -57,30 +59,31 @@ class CacheStore implements IdempotencyStore
     }
 
     /**
-     * @param string $key
+     * @param IdempotencyKey $key
      * @return bool
      */
+
+
     public function acquireLock(IdempotencyKey $key): bool
     {
         try {
             $lock = $this->lockProvider
                 ->lock(
                     $this->getCacheKey($key),
-                    // TODO: Добавить пункт в конфиг
-                    self::LOCK_SECONDS,
+                    $this->config->lockWaitTimeout,
                 );
 
             $this->lockOwner = $lock->owner();
 
             return $lock
-            ->block(self::LOCK_SECONDS);
+            ->block($this->config->lockWaitTimeout);
         }catch (LockTimeoutException $e){
             return false;
         }
     }
 
     /**
-     * @param string $key
+     * @param IdempotencyKey $key
      * @return mixed
      */
     public function releaseLock(IdempotencyKey $key): bool
@@ -96,8 +99,13 @@ class CacheStore implements IdempotencyStore
         return self::PREFIX . $key->key;
     }
 
+    /**
+     * @throws LockWaitExceededException
+     */
     public function waitForLock(IdempotencyKey $key): void
     {
-        $this->acquireLock($key);
+        if(! $this->acquireLock($key)){
+            throw new LockWaitExceededException;
+        }
     }
 }

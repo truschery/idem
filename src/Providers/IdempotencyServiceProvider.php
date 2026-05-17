@@ -6,6 +6,7 @@ use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\ServiceProvider;
+use Truschery\Idem\Config\IdempotencyConfig;
 use Truschery\Idem\Contracts\CacheableSpecification;
 use Truschery\Idem\Contracts\IdempotencyStore;
 use Truschery\Idem\IdempotencyManager;
@@ -37,6 +38,11 @@ class IdempotencyServiceProvider extends ServiceProvider
         });
 
         $this->app->bind(CacheableSpecification::class, AlwaysCacheableSpecification::class);
+        $this->app->singleton(IdempotencyConfig::class, function($app){
+            return IdempotencyConfig::from(
+                config('idempotency')
+            );
+        });
     }
 
     /**

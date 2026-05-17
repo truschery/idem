@@ -28,8 +28,9 @@ class Method
      * @throws LockWaitExceededException
      * @throws IdempotencyKeyMismatchException
      */
-    public function deed(IdempotencyKey $key, \Closure $callback)
+    public function deed(IdempotencyKey $key, \Closure $callback): IdempotencyRecord
     {
+
         // TODO: Нужно еще реализовать проверку хеша параметров
         $record = $this->store->get($key);
 
@@ -49,10 +50,12 @@ class Method
             $response = $callback();
 
             if($this->cacheableSpecification->isSatisfiedBy($response)){
-                $this->store->save($key, $response);
+                return $this->store->save($key, $response);
             }
 
-            return $response;
+            return new IdempotencyRecord(
+                $response
+            );
         } finally {
             $this->store->releaseLock($key);
         }
@@ -61,13 +64,13 @@ class Method
     /**
      * @throws IdempotencyKeyMismatchException
      */
-    private function onRelay(IdempotencyKey $key, IdempotencyRecord $record)
+    private function onRelay(IdempotencyKey $key, IdempotencyRecord $record): IdempotencyRecord
     {
         if($record->hash && $record->hash !== $key->hash){
             throw new IdempotencyKeyMismatchException('Mismatch hashes');
         }
 
-        return $record->response;
+        return $record;
     }
 
 }

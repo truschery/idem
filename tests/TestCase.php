@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Truschery\Idem\Middleware\Idempotent;
 use Truschery\Idem\Providers\IdempotencyServiceProvider;
+use function Illuminate\Support\microseconds;
 
 abstract class TestCase extends Orchestra
 {
@@ -23,7 +24,9 @@ abstract class TestCase extends Orchestra
 
         $router->middleware(Idempotent::class)->group(function () {
             Route::post('/idempotent', function (){
-
+                return response()->json([
+                    'timestamp' => microtime(true)
+                ]);
             });
         });
     }
