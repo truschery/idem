@@ -11,8 +11,10 @@
 |
 */
 
+use Truschery\Idem\Config\IdempotencyConfig;
+
 pest()->extend(Truschery\Idem\Tests\TestCase::class)
- // ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
     ->in('Feature');
 
 /*
@@ -37,6 +39,15 @@ pest()->extend(Truschery\Idem\Tests\TestCase::class)
 | global functions to help you to reduce the number of lines of code in your test files.
 |
 */
+
+function updateIdempotencyConfig($app, array $config): void
+{
+    config($config);
+
+    $app->singleton(IdempotencyConfig::class, function () use ($app, $config) {
+        return IdempotencyConfig::from($app->config->get('idempotency', []));
+    });
+}
 
 function something()
 {

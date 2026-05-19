@@ -5,12 +5,15 @@ namespace Truschery\Idem\Stores;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
-use Truschery\Idem\Config\IdempotencyConfig;
-use Truschery\Idem\Exceptions\LockWaitExceededException;
-use Truschery\Idem\IdempotencyKey;
-use Truschery\Idem\IdempotencyRecord;
 use Psr\SimpleCache\InvalidArgumentException;
+use Truschery\Idem\Config\IdempotencyConfig;
 use Truschery\Idem\Contracts\IdempotencyStore;
+use Truschery\Idem\Enums\Status;
+use Truschery\Idem\Exceptions\LockWaitExceededException;
+use Truschery\Idem\Exceptions\ConcurrentInvocationException;
+use Truschery\Idem\ValueObjects\Key;
+use Truschery\Idem\ValueObjects\Record;
+use Truschery\Idem\Enums\LockState;
 
 class CacheStore implements IdempotencyStore
 {
@@ -25,46 +28,52 @@ class CacheStore implements IdempotencyStore
     const PREFIX = 'idempotency:record:';
 
     /**
-     * @param IdempotencyKey $key
-     * @return IdempotencyRecord
+     * @param \Truschery\Idem\ValueObjects\Key $key
+     * @return \Truschery\Idem\ValueObjects\Record
      * @throws InvalidArgumentException
      */
-    public function get(IdempotencyKey $key): IdempotencyRecord
+    public function get(Key $key): Record
     {
-        $record = $this->cacheRepository->get($this->getCacheKey($key));
-        if(is_null($record)){
-            return new IdempotencyRecord;
+        $row = $this->cacheRepository->get($this->getCacheKey($key));
+        if(is_null($row)){
+            return new Record;
         }
 
-        return new IdempotencyRecord(
-            response: $record['response'],
-            hash: $record['hash'],
-            isReplayed: true
+        return new Record(
+            status: Status::from($row['status']),
+            response: $row['response'],
+            hash: $row['hash'],
         );
     }
 
     /**
-     * @param IdempotencyKey $key
+     * @param \Truschery\Idem\ValueObjects\Key $key
      * @param mixed $response
-     * @return IdempotencyRecord
+     * @return Record
      * @throws InvalidArgumentException
      */
-    public function save(IdempotencyKey $key, mixed $response): IdempotencyRecord
+    public function save(Key $key, mixed $response): Record
     {
         $this->cacheRepository->set($this->getCacheKey($key), [
             'response' => $response,
-            'hash' => $key->hash
-        ]);
-        return new IdempotencyRecord($response);
+            'hash' => $key->hash,
+            'status' => Status::COMPLETED->value,
+        ], $this->config->cacheTtl);
+
+        return new Record(
+            status: Status::COMPLETED,
+            response: $response,
+            hash: $key->hash,
+        );
     }
 
     /**
-     * @param IdempotencyKey $key
-     * @return bool
+     * @param \Truschery\Idem\ValueObjects\Key $key
+     * @return \Truschery\Idem\Enums\LockState
      */
 
 
-    public function acquireLock(IdempotencyKey $key): bool
+    public function acquireLock(Key $key): LockState
     {
         try {
             $lock = $this->lockProvider
@@ -74,19 +83,18 @@ class CacheStore implements IdempotencyStore
                 );
 
             $this->lockOwner = $lock->owner();
-
-            return $lock
-            ->block($this->config->lockWaitTimeout);
+            $lock->block($this->config->lockWaitTimeout);
+            return LockState::ACQUIRED;
         }catch (LockTimeoutException $e){
-            return false;
+            return LockState::LOCKED;
         }
     }
 
     /**
-     * @param IdempotencyKey $key
+     * @param \Truschery\Idem\ValueObjects\Key $key
      * @return mixed
      */
-    public function releaseLock(IdempotencyKey $key): bool
+    public function releaseLock(Key $key): bool
     {
         $restore = $this->lockProvider
             ->restoreLock($this->getCacheKey($key), $this->lockOwner);
@@ -94,17 +102,19 @@ class CacheStore implements IdempotencyStore
         return $restore->release();
     }
 
-    private function getCacheKey(IdempotencyKey $key): string
+    private function getCacheKey(Key $key): string
     {
         return self::PREFIX . $key->key;
     }
 
     /**
-     * @throws LockWaitExceededException
+     * @throws LockWaitExceededException|ConcurrentInvocationException
      */
-    public function waitForLock(IdempotencyKey $key): void
+    public function waitForLock(Key $key): void
     {
-        if(! $this->acquireLock($key)){
+        if($this->config->lockWaitStrategy === 'exception') throw new ConcurrentInvocationException;
+
+        if($this->acquireLock($key) === LockState::LOCKED){
             throw new LockWaitExceededException;
         }
     }

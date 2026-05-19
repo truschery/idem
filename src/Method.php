@@ -3,10 +3,12 @@
 namespace Truschery\Idem;
 
 use Truschery\Idem\Contracts\CacheableSpecification;
-use Truschery\Idem\Contracts\IdempotencyPolicy;
 use Truschery\Idem\Contracts\IdempotencyStore;
-use Truschery\Idem\Exceptions\IdempotencyKeyMismatchException;
-use Truschery\Idem\Exceptions\LockWaitExceededException;
+use Truschery\Idem\Enums\LockState;
+use Truschery\Idem\Enums\Status;
+use Truschery\Idem\Exceptions\IdempotencyHashMismatchException;
+use Truschery\Idem\ValueObjects\Key;
+use Truschery\Idem\ValueObjects\Record;
 
 class Method
 {
@@ -25,25 +27,28 @@ class Method
     }
 
     /**
-     * @throws LockWaitExceededException
-     * @throws IdempotencyKeyMismatchException
+     * @throws IdempotencyHashMismatchException
      */
-    public function deed(IdempotencyKey $key, \Closure $callback): IdempotencyRecord
+    public function deed(Key $key, \Closure $callback): Record
     {
-
-        // TODO: Нужно еще реализовать проверку хеша параметров
         $record = $this->store->get($key);
-
-        if($record->isReplayed){
+        if($record->status === Status::COMPLETED){
             return $this->onRelay($key, $record);
         }
 
-        $this->store->waitForLock($key);
+        // TODO: Сделать условие на получение lock
+        $lock = $this->store->acquireLock($key);
 
-        $record = $this->store->get($key);
+        if($lock === LockState::LOCKED){
+            $this->store->waitForLock($key);
+        }
 
-        if($record->isReplayed){
-            return $this->onRelay($key, $record);
+        if($lock === LockState::COMPLETED){
+            $record = $this->store->get($key);
+
+            if($record->isReplayed){
+                return $this->onRelay($key, $record);
+            }
         }
 
         try {
@@ -53,7 +58,7 @@ class Method
                 return $this->store->save($key, $response);
             }
 
-            return new IdempotencyRecord(
+            return new Record(
                 $response
             );
         } finally {
@@ -62,12 +67,12 @@ class Method
     }
 
     /**
-     * @throws IdempotencyKeyMismatchException
+     * @throws IdempotencyHashMismatchException
      */
-    private function onRelay(IdempotencyKey $key, IdempotencyRecord $record): IdempotencyRecord
+    private function onRelay(Key $key, Record $record): Record
     {
         if($record->hash && $record->hash !== $key->hash){
-            throw new IdempotencyKeyMismatchException('Mismatch hashes');
+            throw new IdempotencyHashMismatchException('Mismatch hashes');
         }
 
         return $record;

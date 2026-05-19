@@ -15,108 +15,134 @@
  * критерий успеха: метод корректно возвращает данные
  */
 
-use Truschery\Idem\Contracts\IdempotencyPolicy;
 use Truschery\Idem\Exceptions\LockWaitExceededException;
-use Truschery\Idem\IdempotencyKey;
-use Truschery\Idem\IdempotencyRecord;
+use Truschery\Idem\Method;
 use Truschery\Idem\Stores\CacheStore;
-
-function createMockCacheStore(IdempotencyKey $key, IdempotencyRecord $record)
-{
-    $mock = mock(CacheStore::class);
-    $mock->shouldReceive('get')->twice()->with($key)->andReturn($record);
-    $mock->shouldReceive('acquireLock')->once()->with($key)->andReturn(true);
-    $mock->shouldReceive('save')->once();
-    $mock->shouldReceive('releaseLock')->once()->with($key);
-
-    return $mock;
-}
-
-function createMockPolicy(IdempotencyKey $key, IdempotencyRecord $record)
-{
-    $mock = mock(IdempotencyPolicy::class);
-    $mock->shouldReceive('onRelay')->once()->andReturn(1);
-
-    return $mock;
-}
+use Truschery\Idem\Stores\DatabaseStore;
+use Truschery\Idem\ValueObjects\Key;
 
 describe('Method', function (){
 
-//    it('successfully executed the initial call, caches the response, and release the lock', function () {
-//        $record = new \Truschery\Idem\IdempotencyRecord;
-//        $key = new IdempotencyKey('idempotency-uuid');
-//        $mockStore = createMockCacheStore($key, $record);
-//
-//        $method = new \Truschery\Idem\Method(
-//            $mockStore
-//        );
-//
-//        $response = $method->deed($key, fn() => true);
-//
-//        expect($response)->toBeTrue();
-//    });
+    beforeEach(function (){
+       $this->key = new Key('idempotency-key');
+    });
 
-    it('return the cached response on subsequent calls without re-executing the original logic', function (){
-        $key = new IdempotencyKey('cache-idempotency-uuid');
-        $count = 1;
+    it('successfully executed the initial call, caches the response, and release the lock', function (string $storeName) {
+        $store = $this->app->make($storeName);
+        $method = Method::factory($store);
 
-        $record = new \Truschery\Idem\IdempotencyRecord(
-            1,
-            null,
-            true
-        );
+        $record = $method->deed($this->key, fn() => true);
 
-        $mockStrategy = mock(CacheStore::class);
-        $mockStrategy->shouldReceive('get')->once()->with($key)->andReturn($record);
+        expect($record->response)->toBeTrue();
+    });
 
-        $mockStrategy->shouldReceive('waitForLock')->never();
-        $mockStrategy->shouldReceive('acquireLock')->never();
-        $mockStrategy->shouldReceive('save')->never();
-        $mockStrategy->shouldReceive('releaseLock')->never();
+    it('return the cached response on subsequent calls without re-executing the original logic', function (string $storeName){
+        $store = $this->app->make($storeName);
+        $method = Method::factory($store);
 
-        $mockPolicy = createMockPolicy($key, $record);
+        $count = 0;
+        $method->deed($this->key, function () use (&$count){
+            return ++$count;
+        });
 
-        $method = new \Truschery\Idem\Method(
-            $mockStrategy,
-            $mockPolicy
-        );
-
-        $response = $method->deed($key, function () use (&$count){
+        $record = $method->deed($this->key, function () use (&$count){
             return ++$count;
         });
 
         expect($count)->toBe(1)
-        ->and($response)->toBe(1);
+        ->and($record->response)->toBe(1);
     });
 
-    it('throws an exception when the timeout for acquiring a lock is exceeded', function () {
-        $record = new \Truschery\Idem\IdempotencyRecord;
-        $key = 'throw-idempotency-uuid';
+    it('throws an exception when the timeout for acquiring a lock is exceeded', function (string $storeName) {
+        updateIdempotencyConfig($this->app, [
+            'idempotency.lock_wait.timeout' => 1
+        ]);
 
-        // TODO: Переписать тест как появится конфиг
-        $mock = mock(CacheStore::class);
-        $mock->shouldReceive('get')->with($key)->andReturn($record);
-        $mock->shouldReceive('acquireLock')->with($key)->andReturn(false);
+        $store = $this->app->make($storeName);
+        $store->acquireLock($this->key);
 
-        $method = new \Truschery\Idem\Method($mock);
+        updateIdempotencyConfig($this->app, [
+            'idempotency.lock_wait.timeout' => 0
+        ]);
+        $method = Method::factory($this->app->make($storeName));
 
-        expect(fn() => $method->deed($key, fn() => throw new Exception(), 1))
-            ->toThrow(LockWaitExceededException::class);
+        $this->expectException(LockWaitExceededException::class);
+        $method->deed($this->key, fn() => true);
     });
 
-    it('waits for the lock to end and returns the cached result', function (){
-        $record = new \Truschery\Idem\IdempotencyRecord(
-            'response',
-            true
+    it('return the cached response on concurrent call when "lock_wait.strategy" equals "wait"', function (string $storeName){
+        updateIdempotencyConfig($this->app, [
+            'idempotency.lock_wait.strategy' => 'wait',
+            'idempotency.lock_wait.timeout' => 0
+        ]);
+
+        $store = $this->app->make($storeName);
+        $store->acquireLock($this->key);
+        $store->save($this->key, 'first response');
+
+        updateIdempotencyConfig($this->app, [
+            'idempotency.lock_wait.timeout' => 1
+        ]);
+
+        $store = $this->app->make($storeName);
+        $record = Method::factory($store)
+            ->deed($this->key, fn() => 'second response');
+
+        expect($record->response)->toBe('first response');
+    });
+
+    it('throws an exception when "lock_wait.strategy" equals "exception"', function (string $storeName){
+        updateIdempotencyConfig($this->app, [
+            'idempotency.lock_wait.strategy' => 'exception',
+            'idempotency.lock_wait.timeout' => 1
+        ]);
+        $store = $this->app->make($storeName);
+        $store->acquireLock($this->key);
+
+        $method = Method::factory($store);
+
+        $this->expectException(\Truschery\Idem\Exceptions\ConcurrentInvocationException::class);
+        $method->deed($this->key, fn() => 'response');
+    });
+
+    it('throws an exception when request hash mismatch', function (string $storeName){
+        $this->withoutExceptionHandling();
+        $key = new Key(
+            'throw-mismatch-idempotency-uuid',
+            'hash-mismatch-idempotency-uuid'
         );
-        $key = 'wait-idempotency-uuid';
-        $mock = mock(CacheStore::class);
-        $mock->shouldReceive('get')->with($key)->andReturn($record);
-        $mock->shouldReceive('acquireLock')->with($key)->andReturn(false);
 
-        $method = new \Truschery\Idem\Method($mock);
+        $store = $this->app->make($storeName);
+        $method = Method::factory($store);
+        $method->deed($key, fn() => true);
 
-        $response = $method->deed($key, fn() => 'second response');
-        expect($response)->toBe($record->response);
+        $this->expectException(\Truschery\Idem\Exceptions\IdempotencyHashMismatchException::class);
+        $method->deed(new Key('throw-mismatch-idempotency-uuid'), fn() => true);
     });
-});
+
+
+    it('saves a new response after the ttl expires', function(string $storeName){
+        updateIdempotencyConfig($this->app, [
+            'idempotency.stores.cache.ttl' => 0,
+            'idempotency.stores.database.ttl' => 0,
+        ]);
+
+        $store = $this->app->make($storeName);
+        $method = Method::factory($store);
+        $count = 0;
+        $responseFirst = $method->deed($this->key, function() use(&$count) {
+            return ++$count;
+        });
+        $responseSecond = $method->deed($this->key, function() use(&$count) {
+            return ++$count;
+        });
+
+        expect($responseFirst->response)->toBe(1)
+        ->and($responseSecond->response)->toBe(2);
+    });
+
+    it('can ');
+})->with([
+    DatabaseStore::class,
+    CacheStore::class,
+]);

@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\Route;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Truschery\Idem\Middleware\Idempotent;
 use Truschery\Idem\Providers\IdempotencyServiceProvider;
-use function Illuminate\Support\microseconds;
 
 abstract class TestCase extends Orchestra
 {
@@ -28,6 +27,10 @@ abstract class TestCase extends Orchestra
                     'timestamp' => microtime(true)
                 ]);
             });
+
+            Route::post('/idempotent-500', function (){
+                return throw new \Exception('Server error', 500);
+            });
         });
     }
 
@@ -39,5 +42,20 @@ abstract class TestCase extends Orchestra
             );
         });
     }
-    
+
+    protected function defineEnvironment($app)
+    {
+        $app->config->set('database.default', 'testing');
+
+        $app->config->set('database.connections.testing', [
+            'driver' => 'sqlite',
+            'prefix' => '',
+            'database' => ':memory:',
+        ]);
+    }
+
+    protected function defineDatabaseMigrations(): void
+    {
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+    }
 }

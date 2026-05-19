@@ -21,10 +21,34 @@ class IdempotencyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->registerConfig();
+        $this->registerBindings();
+    }
+
+    /**
+     * Bootstrap services.
+     */
+    public function boot(): void
+    {
+        $this->loadMigrations();
+    }
+
+    private function registerConfig(): void
+    {
+        $this->mergeConfigFrom(dirname(__DIR__, 2).'/config/idempotency.php', 'idempotency');
+    }
+
+    private function registerBindings(): void
+    {
+        $this->app->singleton(IdempotencyConfig::class, function($app){
+            return IdempotencyConfig::from(
+                $app->config->get('idempotency')
+            );
+        });
         $this->app->singleton(CacheRepository::class, function($app){
-            // TODO: Добавить этот пункт в конфигурацию пакета
+            $config = $app->make(IdempotencyConfig::class);
             return $app->make(CacheFactory::class)->store(
-                'array'
+                $config->getCacheDriver()
             );
         });
 
@@ -38,23 +62,12 @@ class IdempotencyServiceProvider extends ServiceProvider
         });
 
         $this->app->bind(CacheableSpecification::class, AlwaysCacheableSpecification::class);
-        $this->app->singleton(IdempotencyConfig::class, function($app){
-            return IdempotencyConfig::from(
-                config('idempotency')
-            );
-        });
     }
 
-    /**
-     * Bootstrap services.
-     */
-    public function boot(): void
+    private function loadMigrations(): void
     {
-        //
-    }
-
-    private function getCacheRepository()
-    {
-
+        $this->publishesMigrations([
+            __DIR__.'/../database/migrations' => database_path('migrations')
+        ]);
     }
 }

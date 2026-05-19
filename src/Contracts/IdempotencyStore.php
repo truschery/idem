@@ -2,20 +2,21 @@
 
 namespace Truschery\Idem\Contracts;
 
-use Truschery\Idem\IdempotencyKey;
-use Truschery\Idem\IdempotencyRecord;
+use Truschery\Idem\Enums\LockState;
+use Truschery\Idem\ValueObjects\Key;
+use Truschery\Idem\ValueObjects\Record;
 
 interface IdempotencyStore
 {
-    public function get(IdempotencyKey $key): IdempotencyRecord;
+    public function get(Key $key): Record;
 
-    public function save(IdempotencyKey $key, $response): IdempotencyRecord;
+    public function save(Key $key, $response): Record;
 
-    public function acquireLock(IdempotencyKey $key): bool;
+    public function acquireLock(Key $key): LockState;
 
-    public function waitForLock(IdempotencyKey $key): void;
+    public function waitForLock(Key $key): void;
 
-    public function releaseLock(IdempotencyKey $key);
+    public function releaseLock(Key $key): bool;
 
 
 }

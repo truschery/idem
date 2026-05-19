@@ -1,8 +1,8 @@
 <?php
 
-namespace Truschery\Idem;
+namespace Truschery\Idem\ValueObjects;
 
-class IdempotencyKey
+class Key
 {
     public function __construct(
         public readonly string $key,

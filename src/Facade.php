@@ -2,6 +2,8 @@
 
 namespace Truschery\Idem;
 
+use Truschery\Idem\ValueObjects\Key;
+
 class Facade
 {
 
@@ -27,9 +29,9 @@ class Facade
         );
     }
 
-    public function run(string|IdempotencyKey $key, \Closure $callback)
+    public function run(string|Key $key, \Closure $callback)
     {
-        $idempotencyKey = $key instanceof IdempotencyKey ? $key : new IdempotencyKey($key);
+        $idempotencyKey = $key instanceof Key ? $key : new Key($key);
         return $this->manager->driver()->deed($idempotencyKey, $callback);
     }
 
