@@ -16,10 +16,7 @@ return new class extends Migration
             $table->longText('response')->nullable();
             $table->string('hash', 64)->nullable();
             $table->timestamp('expires_at');
-            $table->enum('status', [
-                'processing',
-                'completed'
-            ]);
+            $table->integer('status');
 
             $table->timestamps();
         });

@@ -8,6 +8,7 @@ return [
     ],
     'request' => [
         'idempotent_methods' => ['POST', 'PATCH'],
+        'middleware_alias' => 'idempotent',
         'store' => 'cache',
         'header' => [
             'idempotency_key' => 'Idempotency-Key',

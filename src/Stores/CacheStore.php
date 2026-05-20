@@ -28,8 +28,8 @@ class CacheStore implements IdempotencyStore
     const PREFIX = 'idempotency:record:';
 
     /**
-     * @param \Truschery\Idem\ValueObjects\Key $key
-     * @return \Truschery\Idem\ValueObjects\Record
+     * @param Key $key
+     * @return Record
      * @throws InvalidArgumentException
      */
     public function get(Key $key): Record
@@ -43,11 +43,12 @@ class CacheStore implements IdempotencyStore
             status: Status::from($row['status']),
             response: $row['response'],
             hash: $row['hash'],
+            isReplayed: true,
         );
     }
 
     /**
-     * @param \Truschery\Idem\ValueObjects\Key $key
+     * @param Key $key
      * @param mixed $response
      * @return Record
      * @throws InvalidArgumentException
@@ -68,7 +69,7 @@ class CacheStore implements IdempotencyStore
     }
 
     /**
-     * @param \Truschery\Idem\ValueObjects\Key $key
+     * @param Key $key
      * @return \Truschery\Idem\Enums\LockState
      */
 
@@ -91,7 +92,7 @@ class CacheStore implements IdempotencyStore
     }
 
     /**
-     * @param \Truschery\Idem\ValueObjects\Key $key
+     * @param Key $key
      * @return mixed
      */
     public function releaseLock(Key $key): bool

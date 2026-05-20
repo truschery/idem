@@ -9,13 +9,14 @@ use Illuminate\Support\ServiceProvider;
 use Truschery\Idem\Config\IdempotencyConfig;
 use Truschery\Idem\Contracts\CacheableSpecification;
 use Truschery\Idem\Contracts\IdempotencyStore;
-use Truschery\Idem\IdempotencyManager;
-use Truschery\Idem\Method;
+use Truschery\Idem\Middleware\Idempotent;
 use Truschery\Idem\Specs\AlwaysCacheableSpecification;
 use Truschery\Idem\Stores\CacheStore;
+use Truschery\Idem\Stores\DatabaseStore;
 
 class IdempotencyServiceProvider extends ServiceProvider
 {
+    
     /**
      * Register services.
      */
@@ -30,12 +31,43 @@ class IdempotencyServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->loadMigrations();
+        $this->publishMigrations();
+        $this->publishConfig();
+        $this->registerMiddleware();
+    }
+
+    private function registerMiddleware(): void
+    {
+        $router = $this->app['router'];
+        $config = $this->app->make(IdempotencyConfig::class);
+
+        $router->aliasMiddleware(
+            $config->requestMiddlewareAlias,
+            Idempotent::class
+        );
     }
 
     private function registerConfig(): void
     {
         $this->mergeConfigFrom(dirname(__DIR__, 2).'/config/idempotency.php', 'idempotency');
+    }
+
+    private function publishConfig(): void
+    {
+        if($this->app->runningInConsole()){
+            $this->publishes([
+                dirname(__DIR__, 2).'/config/idempotency.php' => config_path('idempotency.php'),
+            ], 'idem-config');
+        }
+    }
+
+    private function publishMigrations(): void
+    {
+        if($this->app->runningInConsole()){
+            $this->publishes([
+                __DIR__.'/../database/migrations' => database_path('migrations'),
+            ], 'idem-migrations');
+        }
     }
 
     private function registerBindings(): void
@@ -57,17 +89,14 @@ class IdempotencyServiceProvider extends ServiceProvider
             return $cache->getStore();
         });
 
-        $this->app->singleton(IdempotencyManager::class, function ($app) {
-            return new IdempotencyManager($app);
-        });
-
         $this->app->bind(CacheableSpecification::class, AlwaysCacheableSpecification::class);
-    }
-
-    private function loadMigrations(): void
-    {
-        $this->publishesMigrations([
-            __DIR__.'/../database/migrations' => database_path('migrations')
-        ]);
+        $this->app->bind(IdempotencyStore::class, function($app){
+            $config = $app->make(IdempotencyConfig::class);
+            return match ($config->defaultStore){
+                'cache' => $app->make(CacheStore::class),
+                'database' => $app->make(DatabaseStore::class),
+                default => throw new \Exception('Unknown Idempotency Store Driver: ' . $config->defaultStore),
+            };
+        });
     }
 }

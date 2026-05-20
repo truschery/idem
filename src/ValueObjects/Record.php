@@ -10,5 +10,6 @@ readonly class Record
         public ?Status $status = null,
         public mixed $response = null,
         public ?string $hash = null,
+        public bool $isReplayed = false,
     ){}
 }

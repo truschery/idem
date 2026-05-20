@@ -2,10 +2,10 @@
 
 namespace Truschery\Idem\ValueObjects;
 
-class Key
+readonly class Key
 {
     public function __construct(
-        public readonly string $key,
-        public readonly ?string $hash = null
+        public string  $key,
+        public ?string $hash = null
     ){}
 }

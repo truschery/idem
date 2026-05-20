@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Truschery\Idem\Config\IdempotencyConfig;
 use Truschery\Idem\Contracts\IdempotencyStore;
 use Truschery\Idem\Enums\LockState;
+use Truschery\Idem\Enums\Status;
 use Truschery\Idem\Exceptions\LockWaitExceededException;
 use Truschery\Idem\Exceptions\ConcurrentInvocationException;
 use Truschery\Idem\ValueObjects\Key;
@@ -32,6 +33,7 @@ class DatabaseStore implements IdempotencyStore
         if($this->idemIsExpired($row)) return new Record;
 
         return new Record(
+            Status::from($row->status),
             unserialize($row->response),
             $row->hash,
             true
@@ -44,9 +46,11 @@ class DatabaseStore implements IdempotencyStore
             ->where('key', $key->key)
             ->update([
                 'response' => serialize($response),
+                'status' => Status::COMPLETED->value,
             ]);
 
         return new Record(
+    Status::COMPLETED,
           $response,
           $key->hash
         );
@@ -69,6 +73,7 @@ class DatabaseStore implements IdempotencyStore
                     ->insert([
                         'key' => $key->key,
                         'hash' => $key->hash,
+                        'status' => Status::PROCESSING->value,
                         'response' => null,
                         'expires_at' => Carbon::now()->addSeconds($this->config->databaseTtl)->timestamp
                     ]);
@@ -83,6 +88,7 @@ class DatabaseStore implements IdempotencyStore
                     ->update([
                         'hash' => $key->hash,
                         'response' => null,
+                        'status' => Status::COMPLETED->value,
                         'expires_at' => Carbon::now()->addSeconds($this->config->databaseTtl)->timestamp
                     ]);
 
@@ -90,12 +96,12 @@ class DatabaseStore implements IdempotencyStore
                 return LockState::ACQUIRED;
             }
 
-            if(! is_null($row->response)){
-                DB::commit();
+            DB::commit();
+
+            if($row->status === Status::COMPLETED->value){
                 return LockState::COMPLETED;
             }
 
-            DB::commit();
             return LockState::LOCKED;
         } catch (\Exception $e){
             DB::rollBack();
@@ -113,7 +119,7 @@ class DatabaseStore implements IdempotencyStore
         while($elapsed < $this->config->lockWaitTimeout * 1000) {
             $record = $this->get($key);
 
-            if($record->response !== null){
+            if($record->status === Status::COMPLETED->value){
                 return;
             }
 

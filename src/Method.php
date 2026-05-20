@@ -18,11 +18,12 @@ class Method
     ){}
 
     public static function factory(
-        IdempotencyStore $store,
         ?CacheableSpecification $cacheableSpecification = null
-    )
+    ): self
     {
         $spec = $cacheableSpecification ?: app(CacheableSpecification::class);
+        $store = app()->make(IdempotencyStore::class);
+
         return new self($store, $spec);
     }
 
@@ -33,24 +34,25 @@ class Method
     {
         $record = $this->store->get($key);
         if($record->status === Status::COMPLETED){
-            return $this->onRelay($key, $record);
+            return $this->relay($key, $record);
         }
 
-        // TODO: Сделать условие на получение lock
         $lock = $this->store->acquireLock($key);
 
-        if($lock === LockState::LOCKED){
-            $this->store->waitForLock($key);
-        }
-
-        if($lock === LockState::COMPLETED){
-            $record = $this->store->get($key);
-
-            if($record->isReplayed){
-                return $this->onRelay($key, $record);
+        return match($lock){
+            LockState::ACQUIRED => $this->executeAndStore($key, $callback),
+            LockState::LOCKED => $this->waitAndRelay($key, $callback),
+            LockState::COMPLETED => function () use($key, $record) {
+                $record = $this->store->get($key);
+                if($record->status === Status::COMPLETED){
+                    return $this->relay($key, $record);
+                }
             }
-        }
+        };
+    }
 
+    private function executeAndStore(Key $key, \Closure $callback): Record
+    {
         try {
             $response = $callback();
 
@@ -69,7 +71,22 @@ class Method
     /**
      * @throws IdempotencyHashMismatchException
      */
-    private function onRelay(Key $key, Record $record): Record
+    private function waitAndRelay(Key $key, \Closure $callback): Record
+    {
+        $this->store->waitForLock($key);
+
+        $record = $this->store->get($key);
+        if($record->status === Status::COMPLETED){
+            return $this->relay($key, $record);
+        }
+
+        return $this->executeAndStore($key, $callback);
+    }
+
+    /**
+     * @throws IdempotencyHashMismatchException
+     */
+    private function relay(Key $key, Record $record): Record
     {
         if($record->hash && $record->hash !== $key->hash){
             throw new IdempotencyHashMismatchException('Mismatch hashes');
