@@ -141,7 +141,7 @@ describe('Method', function (){
         ->and($responseSecond->response)->toBe(2);
     });
 
-    it('can ');
+//    it('can ');
 })->with([
     DatabaseStore::class,
     CacheStore::class,

@@ -22,7 +22,7 @@ class TestJob implements ShouldQueue, ShouldIdempotent
     public function middleware(): array
     {
         return [
-            new EnsureIdempotency,
+            new EnsureIdempotency($this->key),
         ];
     }
 
