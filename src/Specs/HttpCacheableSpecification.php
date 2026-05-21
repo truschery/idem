@@ -12,6 +12,10 @@ class HttpCacheableSpecification implements CacheableSpecification
 
     public function isSatisfiedBy(mixed $response): bool
     {
-        return $response->isSuccessful();
+        if($response instanceof \Symfony\Component\HttpFoundation\Response){
+            return $response->isSuccessful();
+        }
+
+        return true;
     }
 }
