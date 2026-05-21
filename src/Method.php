@@ -61,6 +61,7 @@ class Method
             }
 
             return new Record(
+                Status::COMPLETED,
                 $response
             );
         } finally {
