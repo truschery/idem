@@ -15,21 +15,24 @@
  * критерий успеха: метод корректно возвращает данные
  */
 
+use Truschery\Idem\Contracts\IdempotencyStore;
 use Truschery\Idem\Exceptions\LockWaitExceededException;
 use Truschery\Idem\Method;
 use Truschery\Idem\Stores\CacheStore;
 use Truschery\Idem\Stores\DatabaseStore;
 use Truschery\Idem\ValueObjects\Key;
 
-describe('Method', function (){
 
-    beforeEach(function (){
-       $this->key = new Key('idempotency-key');
+describe('Method', function () {
+
+    beforeEach(function () {
+        $this->key = new Key('idempotency-key');
+        $this->app->forgetInstance(\Truschery\Idem\Config\IdempotencyConfig::class);
     });
 
     it('successfully executed the initial call, caches the response, and release the lock', function (string $storeName) {
-        $store = $this->app->make($storeName);
-        $method = Method::factory($store);
+        bindStoreClass($storeName, $this->app);
+        $method = Method::factory();
 
         $record = $method->deed($this->key, fn() => true);
 
@@ -37,8 +40,8 @@ describe('Method', function (){
     });
 
     it('return the cached response on subsequent calls without re-executing the original logic', function (string $storeName){
-        $store = $this->app->make($storeName);
-        $method = Method::factory($store);
+        bindStoreClass($storeName, $this->app);
+        $method = Method::factory();
 
         $count = 0;
         $method->deed($this->key, function () use (&$count){
@@ -50,10 +53,11 @@ describe('Method', function (){
         });
 
         expect($count)->toBe(1)
-        ->and($record->response)->toBe(1);
+            ->and($record->response)->toBe(1);
     });
 
     it('throws an exception when the timeout for acquiring a lock is exceeded', function (string $storeName) {
+        bindStoreClass($storeName, $this->app);
         updateIdempotencyConfig($this->app, [
             'idempotency.lock_wait.timeout' => 1
         ]);
@@ -64,13 +68,14 @@ describe('Method', function (){
         updateIdempotencyConfig($this->app, [
             'idempotency.lock_wait.timeout' => 0
         ]);
-        $method = Method::factory($this->app->make($storeName));
+        $method = Method::factory();
 
         $this->expectException(LockWaitExceededException::class);
         $method->deed($this->key, fn() => true);
     });
 
     it('return the cached response on concurrent call when "lock_wait.strategy" equals "wait"', function (string $storeName){
+        bindStoreClass($storeName, $this->app);
         updateIdempotencyConfig($this->app, [
             'idempotency.lock_wait.strategy' => 'wait',
             'idempotency.lock_wait.timeout' => 0
@@ -84,14 +89,14 @@ describe('Method', function (){
             'idempotency.lock_wait.timeout' => 1
         ]);
 
-        $store = $this->app->make($storeName);
-        $record = Method::factory($store)
+        $record = Method::factory()
             ->deed($this->key, fn() => 'second response');
 
         expect($record->response)->toBe('first response');
     });
 
     it('throws an exception when "lock_wait.strategy" equals "exception"', function (string $storeName){
+        bindStoreClass($storeName, $this->app);
         updateIdempotencyConfig($this->app, [
             'idempotency.lock_wait.strategy' => 'exception',
             'idempotency.lock_wait.timeout' => 1
@@ -99,21 +104,21 @@ describe('Method', function (){
         $store = $this->app->make($storeName);
         $store->acquireLock($this->key);
 
-        $method = Method::factory($store);
+        $method = Method::factory();
 
         $this->expectException(\Truschery\Idem\Exceptions\ConcurrentInvocationException::class);
         $method->deed($this->key, fn() => 'response');
     });
 
     it('throws an exception when request hash mismatch', function (string $storeName){
+        bindStoreClass($storeName, $this->app);
         $this->withoutExceptionHandling();
         $key = new Key(
             'throw-mismatch-idempotency-uuid',
             'hash-mismatch-idempotency-uuid'
         );
 
-        $store = $this->app->make($storeName);
-        $method = Method::factory($store);
+        $method = Method::factory();
         $method->deed($key, fn() => true);
 
         $this->expectException(\Truschery\Idem\Exceptions\IdempotencyHashMismatchException::class);
@@ -122,13 +127,13 @@ describe('Method', function (){
 
 
     it('saves a new response after the ttl expires', function(string $storeName){
+        bindStoreClass($storeName, $this->app);
         updateIdempotencyConfig($this->app, [
             'idempotency.stores.cache.ttl' => 0,
             'idempotency.stores.database.ttl' => 0,
         ]);
 
-        $store = $this->app->make($storeName);
-        $method = Method::factory($store);
+        $method = Method::factory();
         $count = 0;
         $responseFirst = $method->deed($this->key, function() use(&$count) {
             return ++$count;
@@ -138,11 +143,11 @@ describe('Method', function (){
         });
 
         expect($responseFirst->response)->toBe(1)
-        ->and($responseSecond->response)->toBe(2);
+            ->and($responseSecond->response)->toBe(2);
     });
 
 //    it('can ');
 })->with([
-    DatabaseStore::class,
     CacheStore::class,
+    DatabaseStore::class,
 ]);

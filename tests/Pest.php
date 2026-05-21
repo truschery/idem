@@ -12,6 +12,7 @@
 */
 
 use Truschery\Idem\Config\IdempotencyConfig;
+use Truschery\Idem\Contracts\IdempotencyStore;
 
 pest()->extend(Truschery\Idem\Tests\TestCase::class)
     ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
@@ -47,6 +48,11 @@ function updateIdempotencyConfig($app, array $config): void
     $app->singleton(IdempotencyConfig::class, function () use ($app, $config) {
         return IdempotencyConfig::from($app->config->get('idempotency', []));
     });
+}
+
+function bindStoreClass(string $class, $app): void
+{
+    $app->bind(IdempotencyStore::class, $class);
 }
 
 function something()
