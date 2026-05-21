@@ -1,0 +1,59 @@
+{
+    "name": "truschery/idem",
+    "type": "library",
+    "license": "MIT",
+    "description": "Idempotency for HTTP requests, queued jobs, and arbitrary operations",
+    "keywords": ["laravel", "idempotency", "middleware", "queue", "idempotent"],
+    "autoload": {
+        "psr-4": {
+            "Truschery\\Idem\\": "src/"
+        }
+    },
+    "prefer-stable": true,
+    "minimum-stability": "stable",
+    "scripts": {
+      "test": "./vendor/bin/pest"
+    },
+    "autoload-dev": {
+      "psr-4": {
+        "Truschery\\Idem\\Tests\\": "tests"
+      }
+    },
+    "authors": [
+        {
+            "name": "truschery",
+            "email": "truschery.work@gmail.com"
+        }
+    ],
+    "require": {
+      "php": "^8.2|^8.3|^8.4",
+      "illuminate/http": "*",
+      "illuminate/database": "*",
+      "illuminate/queue": "*",
+      "illuminate/cache": "*",
+      "illuminate/support": "*",
+      "truschery/kanon": "^1.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^10.11",
+        "laravel/pint": "^1.29",
+        "pestphp/pest": "^3.8",
+        "phpstan/phpstan": "^2.1"
+
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "extra": {
+      "laravel": {
+        "providers": [
+          "Truschery\\Idem\\Providers\\IdempotencyServiceProvider"
+        ],
+        "aliases": {
+          "Once": "Truschery\\Idem\\Once"
+        }
+      }
+    }
+}
