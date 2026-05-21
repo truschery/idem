@@ -67,7 +67,7 @@ class Idempotent
     {
         $fingerprint = [
             'content' => json_decode($request->getContent(), true),
-            'headers' => $request->headers->all(),
+            'method' => $request->method(),
             'path' => $request->path(),
         ];
 
