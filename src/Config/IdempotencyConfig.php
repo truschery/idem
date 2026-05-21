@@ -31,7 +31,7 @@ final readonly class IdempotencyConfig
             lockWaitStrategy: Arr::get($config, 'lock_wait.strategy'),
             requestIdempotentMethods: Arr::get($config, 'request.idempotent_methods'),
             requestStore: Arr::get($config, 'request.store'),
-            requestMiddlewareAlias: Arr::get($config, 'request.store'),
+            requestMiddlewareAlias: Arr::get($config, 'request.middleware_alias'),
             requestHeaderIdempotencyKeyName: Arr::get($config, 'request.header.idempotency_key'),
             requestHeaderIdempotencyRelayName: Arr::get($config, 'request.header.idempotency_relay'),
             defaultStore: Arr::get($config, 'default'),
