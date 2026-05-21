@@ -133,6 +133,10 @@ class DatabaseStore implements IdempotencyStore
 
     public function releaseLock(Key $key): true
     {
+        DB::table($this->config->databaseTable)
+            ->where('key', $key->key)
+            ->where('status', Status::PROCESSING->value)
+            ->delete();
         return true;
     }
 
