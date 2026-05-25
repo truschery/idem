@@ -17,6 +17,8 @@
 
 Ensures that repeating the same operation always produces the same result with no side effects. Essential for payment systems, APIs, and any operation where duplication is unacceptable.
 
+Full documentation is available at [idem.truschery.dev](https://idem.truschery.dev)
+
 ## Features
 
 - **`Idempotent`** — HTTP middleware: a repeated request with the same `Idempotency-Key` returns the cached response
