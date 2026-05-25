@@ -120,8 +120,8 @@ A repeated call with the same key returns the cached result of the first executi
 - [x] Job Middleware (`EnsureIdempotent`)
 - [x] `Once::do()` facade
 - [x] `cache` and `database` drivers
+- [x] Artisan command `idem:prune` — removes expired records from the database
 - [ ] Extended tests for Job middleware and `Once::do()`
-- [ ] Artisan command `idem:prune` — removes expired records from the database
 
 ## License
 
