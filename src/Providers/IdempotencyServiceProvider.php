@@ -7,6 +7,7 @@ use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\ServiceProvider;
 use Truschery\Idem\Config\IdempotencyConfig;
+use Truschery\Idem\Console\IdempotencyPruneCommand;
 use Truschery\Idem\Contracts\CacheableSpecification;
 use Truschery\Idem\Contracts\IdempotencyStore;
 use Truschery\Idem\Middleware\Idempotent;
@@ -34,6 +35,7 @@ class IdempotencyServiceProvider extends ServiceProvider
         $this->publishMigrations();
         $this->publishConfig();
         $this->registerMiddleware();
+        $this->registerCommands();
     }
 
     private function registerMiddleware(): void
@@ -98,5 +100,14 @@ class IdempotencyServiceProvider extends ServiceProvider
                 default => throw new \Exception('Unknown Idempotency Store Driver: ' . $config->defaultStore),
             };
         });
+    }
+
+    private function registerCommands()
+    {
+        if($this->app->runningInConsole()){
+            $this->commands([
+                IdempotencyPruneCommand::class
+            ]);
+        }
     }
 }
