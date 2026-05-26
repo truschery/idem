@@ -17,6 +17,4 @@ interface IdempotencyStore
     public function waitForLock(Key $key): void;
 
     public function releaseLock(Key $key): bool;
-
-
 }

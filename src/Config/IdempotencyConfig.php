@@ -3,7 +3,6 @@
 namespace Truschery\Idem\Config;
 
 use Illuminate\Support\Arr;
-use Illuminate\Support\Collection;
 
 final readonly class IdempotencyConfig
 {
@@ -20,9 +19,7 @@ final readonly class IdempotencyConfig
         public int $cacheTtl,
         public int $databaseTtl,
         public string $databaseTable,
-    )
-    {
-    }
+    ) {}
 
     public static function from(?array $config = null): IdempotencyConfig
     {
@@ -44,9 +41,10 @@ final readonly class IdempotencyConfig
 
     public function getCacheDriver(): ?string
     {
-        if($this->cacheDriver === 'default') return null;
+        if ($this->cacheDriver === 'default') {
+            return null;
+        }
+
         return $this->cacheDriver;
     }
-
-
 }

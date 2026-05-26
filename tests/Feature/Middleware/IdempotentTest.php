@@ -3,23 +3,23 @@
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
 use Truschery\Idem\Config\IdempotencyConfig;
-use Truschery\Idem\Contracts\IdempotencyStore;
-use Truschery\Idem\Exceptions\IdempotencyHashMismatchException;
 use Truschery\Idem\Exceptions\ConcurrentInvocationException;
+use Truschery\Idem\Exceptions\IdempotencyHashMismatchException;
+use Truschery\Idem\Exceptions\LockWaitExceededException;
 use Truschery\Idem\Stores\CacheStore;
 use Truschery\Idem\Stores\DatabaseStore;
 use Truschery\Idem\ValueObjects\Key;
 
-describe('Middleware Idempotent', function() {
-    beforeEach(function() {
-       $this->app->forgetInstance(IdempotencyConfig::class);
+describe('Middleware Idempotent', function () {
+    beforeEach(function () {
+        $this->app->forgetInstance(IdempotencyConfig::class);
     });
 
-    it('can process single request and successful handle idempotency', function (string $storeName){
+    it('can process single request and successful handle idempotency', function (string $storeName) {
         bindStoreClass($storeName, $this->app);
         $key = new Key(Str::uuid());
         $response = $this->post('/idempotent', headers: [
-            'Idempotency-Key' => $key->key
+            'Idempotency-Key' => $key->key,
         ]);
 
         $store = app()->make($storeName);
@@ -27,21 +27,21 @@ describe('Middleware Idempotent', function() {
         $response->assertStatus(200);
 
         expect($record->response)->toBeInstanceOf(JsonResponse::class)
-        ->and($record->response->getData(true)['timestamp'])->toBe($response->json('timestamp'));
+            ->and($record->response->getData(true)['timestamp'])->toBe($response->json('timestamp'));
     });
 
-    it('return the cached response on subsequent request without re-executing the original logic', function (string $storeName){
+    it('return the cached response on subsequent request without re-executing the original logic', function (string $storeName) {
         bindStoreClass($storeName, $this->app);
         $idempotencyKey = Str::uuid()->toString();
         $responseFirst = $this->post('/idempotent', headers: [
-            'Idempotency-Key' => $idempotencyKey
+            'Idempotency-Key' => $idempotencyKey,
         ]);
 
         $responseFirst->assertStatus(200);
         $responseFirst->assertHeaderMissing('Idempotency-Relay');
 
         $responseSecond = $this->post('/idempotent', headers: [
-            'Idempotency-Key' => $idempotencyKey
+            'Idempotency-Key' => $idempotencyKey,
         ]);
 
         $responseSecond->assertStatus(200);
@@ -51,16 +51,16 @@ describe('Middleware Idempotent', function() {
             ->toBe($responseSecond->json('timestamp'));
     });
 
-    it('throws an exception when "lock_wait.strategy" equals "exception"', function (string $storeName){
+    it('throws an exception when "lock_wait.strategy" equals "exception"', function (string $storeName) {
 
         $this->withoutExceptionHandling();
         updateIdempotencyConfig($this->app, [
             'idempotency.lock_wait.strategy' => 'exception',
-            'idempotency.lock_wait.timeout' => 1
+            'idempotency.lock_wait.timeout' => 1,
         ]);
         bindStoreClass($storeName, $this->app);
 
-        $key = new \Truschery\Idem\ValueObjects\Key(
+        $key = new Key(
             Str::uuid()->toString(),
         );
 
@@ -70,18 +70,18 @@ describe('Middleware Idempotent', function() {
         $this->expectException(ConcurrentInvocationException::class);
         $this->expectExceptionCode(409);
         $this->post('/idempotent', headers: [
-            'Idempotency-Key' => $key->key
+            'Idempotency-Key' => $key->key,
         ]);
     });
 
-    it('return the cached response on concurrent request when "lock_wait.strategy" equals "wait"', function (string $storeName){
+    it('return the cached response on concurrent request when "lock_wait.strategy" equals "wait"', function (string $storeName) {
         updateIdempotencyConfig($this->app, [
             'idempotency.lock_wait.strategy' => 'wait',
             'idempotency.lock_wait.timeout' => 1,
         ]);
         bindStoreClass($storeName, $this->app);
 
-        $key = new \Truschery\Idem\ValueObjects\Key(
+        $key = new Key(
             Str::uuid()->toString(),
         );
 
@@ -96,7 +96,7 @@ describe('Middleware Idempotent', function() {
             'idempotency.lock_wait.timeout' => 2,
         ]);
         $response = $this->post('/idempotent', headers: [
-            'Idempotency-Key' => $key->key
+            'Idempotency-Key' => $key->key,
         ]);
         $response->assertOk();
         expect($response->json('timestamp'))->toBe($timestamp);
@@ -104,39 +104,38 @@ describe('Middleware Idempotent', function() {
 
     it('throws an exception when the timeout for acquiring a lock is exceeded', function (string $storeName) {
         updateIdempotencyConfig($this->app, [
-            'idempotency.lock_wait.timeout' => 1
+            'idempotency.lock_wait.timeout' => 1,
         ]);
         bindStoreClass($storeName, $this->app);
         $this->withoutExceptionHandling();
 
-
-        $key = new \Truschery\Idem\ValueObjects\Key(
-          Str::uuid()->toString(),
+        $key = new Key(
+            Str::uuid()->toString(),
         );
 
         $store = app()->make($storeName);
         $store->acquireLock($key);
 
         updateIdempotencyConfig($this->app, [
-            'idempotency.lock_wait.timeout' => 0
+            'idempotency.lock_wait.timeout' => 0,
         ]);
 
-        $this->expectException(\Truschery\Idem\Exceptions\LockWaitExceededException::class);
+        $this->expectException(LockWaitExceededException::class);
         $this->post('/idempotent', headers: [
-            'Idempotency-Key' => $key->key
+            'Idempotency-Key' => $key->key,
         ]);
     });
 
-    it('throws an exception when request hash mismatch', function (string $storeName){
+    it('throws an exception when request hash mismatch', function (string $storeName) {
         bindStoreClass($storeName, $this->app);
         $this->withoutExceptionHandling();
-        $key = new \Truschery\Idem\ValueObjects\Key(
+        $key = new Key(
             Str::uuid()->toString(),
         );
 
         $responseFirst = $this->post('/idempotent', headers: [
             'Idempotency-Key' => $key->key,
-            'Expect-Header' => 'true'
+            'Expect-Header' => 'true',
         ]);
 
         $responseFirst->assertStatus(200);
@@ -149,7 +148,7 @@ describe('Middleware Idempotent', function() {
 
     it('does not save the request to the cache if a server error occurs.', function (string $storeName) {
         bindStoreClass($storeName, $this->app);
-        $key = new \Truschery\Idem\ValueObjects\Key(
+        $key = new Key(
             Str::uuid()->toString(),
         );
 
@@ -163,9 +162,9 @@ describe('Middleware Idempotent', function() {
         expect($record->response)->toBeNull();
     });
 
-    it('saves a new request after the ttl expires', function (string $storeName){
+    it('saves a new request after the ttl expires', function (string $storeName) {
         bindStoreClass($storeName, $this->app);
-        $key = new \Truschery\Idem\ValueObjects\Key(
+        $key = new Key(
             Str::uuid()->toString(),
         );
 

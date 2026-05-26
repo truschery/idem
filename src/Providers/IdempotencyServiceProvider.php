@@ -17,7 +17,6 @@ use Truschery\Idem\Stores\DatabaseStore;
 
 class IdempotencyServiceProvider extends ServiceProvider
 {
-    
     /**
      * Register services.
      */
@@ -56,7 +55,7 @@ class IdempotencyServiceProvider extends ServiceProvider
 
     private function publishConfig(): void
     {
-        if($this->app->runningInConsole()){
+        if ($this->app->runningInConsole()) {
             $this->publishes([
                 dirname(__DIR__, 2).'/config/idempotency.php' => config_path('idempotency.php'),
             ], 'idem-config');
@@ -65,7 +64,7 @@ class IdempotencyServiceProvider extends ServiceProvider
 
     private function publishMigrations(): void
     {
-        if($this->app->runningInConsole()){
+        if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__.'/../database/migrations' => database_path('migrations'),
             ], 'idem-migrations');
@@ -74,39 +73,42 @@ class IdempotencyServiceProvider extends ServiceProvider
 
     private function registerBindings(): void
     {
-        $this->app->singleton(IdempotencyConfig::class, function($app){
+        $this->app->singleton(IdempotencyConfig::class, function ($app) {
             return IdempotencyConfig::from(
                 $app->config->get('idempotency')
             );
         });
-        $this->app->singleton(CacheRepository::class, function($app){
+        $this->app->singleton(CacheRepository::class, function ($app) {
             $config = $app->make(IdempotencyConfig::class);
+
             return $app->make(CacheFactory::class)->store(
                 $config->getCacheDriver()
             );
         });
 
-        $this->app->singleton(LockProvider::class, function($app){
+        $this->app->singleton(LockProvider::class, function ($app) {
             $cache = $app->make(CacheRepository::class);
+
             return $cache->getStore();
         });
 
         $this->app->bind(CacheableSpecification::class, AlwaysCacheableSpecification::class);
-        $this->app->bind(IdempotencyStore::class, function($app){
+        $this->app->bind(IdempotencyStore::class, function ($app) {
             $config = $app->make(IdempotencyConfig::class);
-            return match ($config->defaultStore){
+
+            return match ($config->defaultStore) {
                 'cache' => $app->make(CacheStore::class),
                 'database' => $app->make(DatabaseStore::class),
-                default => throw new \Exception('Unknown Idempotency Store Driver: ' . $config->defaultStore),
+                default => throw new \Exception('Unknown Idempotency Store Driver: '.$config->defaultStore),
             };
         });
     }
 
     private function registerCommands()
     {
-        if($this->app->runningInConsole()){
+        if ($this->app->runningInConsole()) {
             $this->commands([
-                IdempotencyPruneCommand::class
+                IdempotencyPruneCommand::class,
             ]);
         }
     }

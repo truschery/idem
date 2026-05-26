@@ -9,7 +9,6 @@ use Truschery\Idem\Config\IdempotencyConfig;
 
 class IdempotencyPruneCommand extends Command
 {
-
     protected $signature = 'idempotency:prune';
 
     protected $description = 'Prune expired idempotency records from the database';
@@ -17,10 +16,9 @@ class IdempotencyPruneCommand extends Command
     public function handle(IdempotencyConfig $config): int
     {
         DB::table($config->databaseTable)
-        ->where('expires_at', '<=', Carbon::now()->timestamp)
-        ->delete();
+            ->where('expires_at', '<=', Carbon::now()->timestamp)
+            ->delete();
 
         return self::SUCCESS;
     }
-
 }

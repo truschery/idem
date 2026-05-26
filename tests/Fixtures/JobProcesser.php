@@ -4,8 +4,5 @@ namespace Truschery\Idem\Tests\Fixtures;
 
 class JobProcesser
 {
-    public function execute()
-    {
-        
-    }
+    public function execute() {}
 }

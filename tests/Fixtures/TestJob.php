@@ -9,15 +9,13 @@ use Illuminate\Queue\InteractsWithQueue;
 use Truschery\Idem\Contracts\ShouldIdempotent;
 use Truschery\Idem\Middleware\EnsureIdempotency;
 
-class TestJob implements ShouldQueue, ShouldIdempotent
+class TestJob implements ShouldIdempotent, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable;
 
     public function __construct(
         private string $key,
-    )
-    {
-    }
+    ) {}
 
     public function middleware(): array
     {

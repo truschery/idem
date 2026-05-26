@@ -4,12 +4,12 @@ use Truschery\Idem\Tests\Fixtures\JobProcesser;
 use Truschery\Idem\Tests\Fixtures\TestJob;
 use Truschery\Idem\ValueObjects\Key;
 
-describe('Ensure Idempotency', function (){
+describe('Ensure Idempotency', function () {
 
-    it('test job', function (){
+    it('test job', function () {
 
         $key = new Key(
-          Str::uuid()->toString()
+            Str::uuid()->toString()
         );
 
         $spy = mock(JobProcesser::class);

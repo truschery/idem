@@ -13,7 +13,7 @@ return [
         'header' => [
             'idempotency_key' => 'Idempotency-Key',
             'idempotency_relay' => 'Idempotency-Relay',
-        ]
+        ],
     ],
     'stores' => [
         'cache' => [
@@ -24,6 +24,6 @@ return [
             'driver' => 'default',
             'ttl' => 86400,
             'table_name' => 'idempotency',
-        ]
-    ]
+        ],
+    ],
 ];

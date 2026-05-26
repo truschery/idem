@@ -8,12 +8,9 @@ use Truschery\Idem\ValueObjects\Key;
 
 class EnsureIdempotency
 {
-
     public function __construct(
         private readonly string $idempotencyKey
-    )
-    {
-    }
+    ) {}
 
     /**
      * @throws IdempotencyHashMismatchException
@@ -23,10 +20,9 @@ class EnsureIdempotency
         $key = new Key($this->idempotencyKey);
 
         Method::factory()
-        ->deed(
-            $key,
-            fn() => $next($job)
-        );
+            ->deed(
+                $key,
+                fn () => $next($job)
+            );
     }
-    
 }

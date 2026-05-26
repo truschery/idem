@@ -11,11 +11,13 @@
 |
 */
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Truschery\Idem\Config\IdempotencyConfig;
 use Truschery\Idem\Contracts\IdempotencyStore;
+use Truschery\Idem\Tests\TestCase;
 
-pest()->extend(Truschery\Idem\Tests\TestCase::class)
-    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
     ->in('Feature');
 
 /*
@@ -28,7 +30,6 @@ pest()->extend(Truschery\Idem\Tests\TestCase::class)
 | to assert different things. Of course, you may extend the Expectation API at any time.
 |
 */
-
 
 /*
 |--------------------------------------------------------------------------
@@ -45,7 +46,7 @@ function updateIdempotencyConfig($app, array $config): void
 {
     config($config);
 
-    $app->singleton(IdempotencyConfig::class, function () use ($app, $config) {
+    $app->singleton(IdempotencyConfig::class, function () use ($app) {
         return IdempotencyConfig::from($app->config->get('idempotency', []));
     });
 }

@@ -1,34 +1,38 @@
 <?php
 
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Truschery\Idem\Config\IdempotencyConfig;
+use Truschery\Idem\Console\IdempotencyPruneCommand;
+use Truschery\Idem\Enums\Status;
 
-describe('Idempotency Prune Command', function() {
+describe('Idempotency Prune Command', function () {
 
-    beforeEach(function() {
-        $this->config = $this->app->make(\Truschery\Idem\Config\IdempotencyConfig::class);
+    beforeEach(function () {
+        $this->config = $this->app->make(IdempotencyConfig::class);
         Carbon::setTestNow('2026-05-25');
 
-        \Illuminate\Support\Facades\DB::table($this->config->databaseTable)->insert([
+        DB::table($this->config->databaseTable)->insert([
             'key' => 'expired-key',
             'response' => null,
             'hash' => null,
             'expires_at' => Carbon::now()->subSeconds($this->config->databaseTtl)->timestamp,
-            'status' => \Truschery\Idem\Enums\Status::COMPLETED->value
+            'status' => Status::COMPLETED->value,
         ]);
 
-        \Illuminate\Support\Facades\DB::table($this->config->databaseTable)->insert([
+        DB::table($this->config->databaseTable)->insert([
             'key' => 'valid-key',
             'response' => null,
             'hash' => null,
             'expires_at' => Carbon::now()->addSeconds($this->config->databaseTtl + 1)->timestamp,
-            'status' => \Truschery\Idem\Enums\Status::PROCESSING->value
+            'status' => Status::PROCESSING->value,
         ]);
     });
 
-    it('can successfully prune expired idempotency records', function() {
+    it('can successfully prune expired idempotency records', function () {
 
-        $this->artisan(\Truschery\Idem\Console\IdempotencyPruneCommand::class)
-        ->assertSuccessful();
+        $this->artisan(IdempotencyPruneCommand::class)
+            ->assertSuccessful();
 
         $this->assertDatabaseHas($this->config->databaseTable, [
             'key' => 'valid-key',

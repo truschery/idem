@@ -11,5 +11,5 @@ readonly class Record
         public mixed $response = null,
         public ?string $hash = null,
         public bool $isReplayed = false,
-    ){}
+    ) {}
 }

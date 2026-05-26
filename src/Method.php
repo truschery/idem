@@ -15,12 +15,11 @@ class Method
     public function __construct(
         private IdempotencyStore $store,
         private CacheableSpecification $cacheableSpecification
-    ){}
+    ) {}
 
     public static function factory(
         ?CacheableSpecification $cacheableSpecification = null
-    ): self
-    {
+    ): self {
         $spec = $cacheableSpecification ?: app(CacheableSpecification::class);
         $store = app()->make(IdempotencyStore::class);
 
@@ -33,18 +32,18 @@ class Method
     public function deed(Key $key, \Closure $callback): Record
     {
         $record = $this->store->get($key);
-        if($record->status === Status::COMPLETED){
+        if ($record->status === Status::COMPLETED) {
             return $this->relay($key, $record);
         }
 
         $lock = $this->store->acquireLock($key);
 
-        return match($lock){
+        return match ($lock) {
             LockState::ACQUIRED => $this->executeAndStore($key, $callback),
             LockState::LOCKED => $this->waitAndRelay($key, $callback),
-            LockState::COMPLETED => function () use($key, $record) {
+            LockState::COMPLETED => function () use ($key, $record) {
                 $record = $this->store->get($key);
-                if($record->status === Status::COMPLETED){
+                if ($record->status === Status::COMPLETED) {
                     return $this->relay($key, $record);
                 }
             }
@@ -56,7 +55,7 @@ class Method
         try {
             $response = $callback();
 
-            if($this->cacheableSpecification->isSatisfiedBy($response)){
+            if ($this->cacheableSpecification->isSatisfiedBy($response)) {
                 return $this->store->save($key, $response);
             }
 
@@ -77,7 +76,7 @@ class Method
         $this->store->waitForLock($key);
 
         $record = $this->store->get($key);
-        if($record->status === Status::COMPLETED){
+        if ($record->status === Status::COMPLETED) {
             return $this->relay($key, $record);
         }
 
@@ -89,11 +88,10 @@ class Method
      */
     private function relay(Key $key, Record $record): Record
     {
-        if($record->hash && $record->hash !== $key->hash){
+        if ($record->hash && $record->hash !== $key->hash) {
             throw new IdempotencyHashMismatchException('Mismatch hashes');
         }
 
         return $record;
     }
-
 }

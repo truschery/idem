@@ -5,21 +5,18 @@ namespace Truschery\Idem\Middleware;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Http\Request;
 use Truschery\Idem\Config\IdempotencyConfig;
-use Truschery\Idem\Contracts\IdempotencyStore;
-use Truschery\Idem\Exceptions\LockWaitExceededException;
 use Truschery\Idem\Exceptions\IdempotencyHashMismatchException;
 use Truschery\Idem\Method;
 use Truschery\Idem\Specs\HttpCacheableSpecification;
 use Truschery\Idem\ValueObjects\Key;
+use Truschery\Idem\ValueObjects\Record;
 use Truschery\Kanon\Json;
 
 class Idempotent
 {
     public function __construct(
         private IdempotencyConfig $config,
-    )
-    {
-    }
+    ) {}
 
     /**
      * @throws BindingResolutionException
@@ -27,7 +24,7 @@ class Idempotent
      */
     public function handle(Request $request, \Closure $next)
     {
-        if($this->shouldSkip($request)){
+        if ($this->shouldSkip($request)) {
             return $next($request);
         }
 
@@ -45,20 +42,24 @@ class Idempotent
         return $record->response;
     }
 
-    private function markRequestAsRelayed(\Truschery\Idem\ValueObjects\Record $record): void
+    private function markRequestAsRelayed(Record $record): void
     {
-        if(!$record->isReplayed) return;
+        if (! $record->isReplayed) {
+            return;
+        }
 
         $record->response->header($this->config->requestHeaderIdempotencyRelayName, true);
     }
 
     private function shouldSkip(Request $request): bool
     {
-        if(!in_array($request->method(), $this->config->requestIdempotentMethods)){
+        if (! in_array($request->method(), $this->config->requestIdempotentMethods)) {
             return true;
         }
 
-        if(! $request->header($this->config->requestHeaderIdempotencyKeyName)) return true;
+        if (! $request->header($this->config->requestHeaderIdempotencyKeyName)) {
+            return true;
+        }
 
         return false;
     }
@@ -76,5 +77,4 @@ class Idempotent
             Json::canonicalize($fingerprint)
         );
     }
-
 }

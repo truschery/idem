@@ -2,7 +2,4 @@
 
 namespace Truschery\Idem\Exceptions;
 
-class IdempotencyHashMismatchException extends \Exception
-{
-
-}
+class IdempotencyHashMismatchException extends \Exception {}
